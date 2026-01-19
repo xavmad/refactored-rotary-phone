@@ -60,6 +60,19 @@ function cameraLoop() {
 cameraLoop();
 
 /* ======================
+   CAMERA SETTLED
+====================== */
+
+function cameraSettled() {
+  return (
+    Math.abs(originX - targetOriginX) < 0.4 &&
+    Math.abs(originY - targetOriginY) < 0.4 &&
+    Math.abs(scale - targetScale) < 0.002
+  );
+}
+
+
+/* ======================
    ZOOM
 ====================== */
 
@@ -185,23 +198,20 @@ function activateGroup(project) {
 
   activeProject = project;
 
+  // fade background
   images.forEach(img => {
     img.style.opacity =
       img.dataset.project === project ? '1' : '0.15';
+
+    img._floating = img.dataset.project !== project;
   });
 
-  // show correct description
-  descriptions.classList.add('visible');
-
-  Array.from(descriptions.children).forEach(desc => {
-    desc.style.display =
-      desc.dataset.project === project ? 'block' : 'none';
-  });
-
+  // ACT 1 — zoom out
   targetScale = 0.7;
   targetOriginX = window.innerWidth * 0.15;
   targetOriginY = window.innerHeight * 0.15;
 
+  // ACT 2 — regroup after zoom-out
   setTimeout(() => {
 
     const groupImages =
@@ -212,65 +222,46 @@ function activateGroup(project) {
     const bottom = window.innerHeight * 0.8;
 
     groupImages.forEach(img => {
+
       const x = left + (Math.random() - 0.5) * 120;
       const y = top + Math.random() * (bottom - top);
 
-      img.dataset.x = x;
-      img.dataset.y = y;
+      img._x = x;
+      img._y = y;
+      img._tx = x;
+      img._ty = y;
 
       img.style.width = '320px';
-      img.style.left = `${x}px`;
-      img.style.top  = `${y}px`;
       img.style.zIndex = 1000;
+      img.style.transform = `translate(${x}px, ${y}px)`;
     });
 
+    // ACT 3 — zoom in
     targetScale = 1;
     targetOriginX = 0;
     targetOriginY = 0;
 
+    // WAIT FOR CAMERA TO FINISH
+    const wait = () => {
+      if (cameraSettled()) {
+
+        descriptions.classList.add('visible');
+
+        Array.from(descriptions.children).forEach(desc => {
+          desc.style.display =
+            desc.dataset.project === project ? 'block' : 'none';
+        });
+
+        return;
+      }
+      requestAnimationFrame(wait);
+    };
+
+    requestAnimationFrame(wait);
+
   }, 600);
-
-setTimeout(() => {
-
-  let stillFrames = 0;
-
-  const waitForCamera = () => {
-
-    const dx = Math.abs(targetOriginX - originX);
-    const dy = Math.abs(targetOriginY - originY);
-    const ds = Math.abs(targetScale - scale);
-
-    // must be stable for several frames
-    if (dx < 0.3 && dy < 0.3 && ds < 0.0008) {
-      stillFrames++;
-    } else {
-      stillFrames = 0;
-    }
-
-    // require stability across frames
-    if (stillFrames > 12) {
-
-      descriptions.classList.add('visible');
-
-      Array.from(descriptions.children).forEach(desc => {
-        desc.style.display =
-          desc.dataset.project === project ? 'block' : 'none';
-      });
-
-      cinematicActive = false;
-      return;
-    }
-
-    requestAnimationFrame(waitForCamera);
-  };
-
-  requestAnimationFrame(waitForCamera);
-
-}, 650);
-
-
-
 }
+
 
 /* ======================
    ESC — RESTORE
@@ -295,4 +286,3 @@ window.addEventListener('keydown', e => {
   targetOriginX = storedOriginX;
   targetOriginY = storedOriginY;
 });
-
