@@ -136,7 +136,7 @@ p {
 
 #project-descriptions {
   position: fixed;
-  left: 75vw;
+  left: 68vw;
   top: 50%;
 
   width: 32vw;
@@ -163,7 +163,7 @@ p {
   opacity: 0;
   pointer-events: none;
 
-  transform: translateY(-50%) translateX(40px);
+  transform: translate(-50%, -50%) translateX(40px);
 
   transition:
     opacity 0.6s ease,
@@ -173,8 +173,9 @@ p {
 #project-descriptions.visible {
   opacity: 1;
   pointer-events: auto;
-  transform: translateY(-50%) translateX(0);
+  transform: translate(-50%, -50%) translateX(0);
 }
+
 
 
 /* text polish */
@@ -189,4 +190,3 @@ p {
   font-weight: 600;
   letter-spacing: 0.03em;
 }
-
