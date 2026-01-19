@@ -1,11 +1,11 @@
-const viewport = document.getElementById('viewport');
-const canvas = document.getElementById('canvas');
-const images = Array.from(document.querySelectorAll('.image'));
-const descriptions = document.getElementById('project-descriptions');
+const viewport = document.getElementById("viewport");
+const canvas = document.getElementById("canvas");
+const images = Array.from(document.querySelectorAll(".image"));
+const descriptions = document.getElementById("project-descriptions");
 
-/* =====================================================
-   CAMERA STATE
-===================================================== */
+/* ===============================
+   CAMERA
+================================ */
 
 let originX = 0;
 let originY = 0;
@@ -15,308 +15,253 @@ let targetOriginX = 0;
 let targetOriginY = 0;
 let targetScale = 1;
 
-const MIN_SCALE = 0.6;
-const MAX_SCALE = 1.8;
-
-const PAN_EASE = 0.06;
-const ZOOM_EASE = 0.045;
+const PAN_EASE = 0.08;
+const ZOOM_EASE = 0.06;
 
 let activeProject = null;
 
-let storedScale = 1;
-let storedOriginX = 0;
-let storedOriginY = 0;
+let stored = { x: 0, y: 0, s: 1 };
 
-/* =====================================================
-   UTILITIES
-===================================================== */
-
-function applyTransform() {
+function applyCamera() {
   canvas.style.transform =
     `translate(${originX}px, ${originY}px) scale(${scale})`;
 }
 
-/* =====================================================
-   CAMERA LOOP (single authority)
-===================================================== */
-
 function cameraLoop() {
   originX += (targetOriginX - originX) * PAN_EASE;
   originY += (targetOriginY - originY) * PAN_EASE;
-  scale   += (targetScale   - scale)   * ZOOM_EASE;
+  scale   += (targetScale - scale) * ZOOM_EASE;
 
-  applyTransform();
+  applyCamera();
   requestAnimationFrame(cameraLoop);
 }
-
 cameraLoop();
 
-/* =====================================================
+/* ===============================
    ZOOM
-===================================================== */
+================================ */
 
-viewport.addEventListener('wheel', e => {
+viewport.addEventListener("wheel", e => {
   if (activeProject) return;
   e.preventDefault();
 
   const zoom = e.deltaY < 0 ? 1.12 : 0.88;
 
-  const mouseX = e.clientX;
-  const mouseY = e.clientY;
+  const mx = e.clientX;
+  const my = e.clientY;
 
-  const worldX = (mouseX - originX) / scale;
-  const worldY = (mouseY - originY) / scale;
+  const wx = (mx - originX) / scale;
+  const wy = (my - originY) / scale;
 
-  targetScale = Math.min(
-    Math.max(targetScale * zoom, MIN_SCALE),
-    MAX_SCALE
-  );
+  targetScale *= zoom;
+  targetScale = Math.min(Math.max(targetScale, 0.6), 1.8);
 
-  targetOriginX = mouseX - worldX * targetScale;
-  targetOriginY = mouseY - worldY * targetScale;
+  targetOriginX = mx - wx * targetScale;
+  targetOriginY = my - wy * targetScale;
 });
 
-/* =====================================================
+/* ===============================
    PAN
-===================================================== */
+================================ */
 
-viewport.addEventListener('mousedown', e => {
+viewport.addEventListener("mousedown", e => {
   if (activeProject) return;
-  if (e.target.classList.contains('image')) return;
+  if (e.target.classList.contains("image")) return;
 
-  const startX = e.clientX - targetOriginX;
-  const startY = e.clientY - targetOriginY;
+  const sx = e.clientX - targetOriginX;
+  const sy = e.clientY - targetOriginY;
 
   function move(ev) {
-    targetOriginX = ev.clientX - startX;
-    targetOriginY = ev.clientY - startY;
+    targetOriginX = ev.clientX - sx;
+    targetOriginY = ev.clientY - sy;
   }
 
   function up() {
-    window.removeEventListener('mousemove', move);
-    window.removeEventListener('mouseup', up);
+    window.removeEventListener("mousemove", move);
+    window.removeEventListener("mouseup", up);
   }
 
-  window.addEventListener('mousemove', move);
-  window.addEventListener('mouseup', up);
+  window.addEventListener("mousemove", move);
+  window.addEventListener("mouseup", up);
 });
 
-/* =====================================================
-   INITIAL IMAGE SETUP
-===================================================== */
+/* ===============================
+   IMAGE SETUP
+================================ */
 
 const originals = [];
 
 images.forEach(img => {
-
   const x = Math.random() * window.innerWidth;
   const y = Math.random() * window.innerHeight;
 
-  img._x = x;
-  img._y = y;
+  img.x = x;
+  img.y = y;
 
-  img._tx = x;
-  img._ty = y;
+  img.vx = (Math.random() - 0.5) * 0.25;
+  img.vy = (Math.random() - 0.5) * 0.25;
 
-  img._vx = (Math.random() - 0.5) * 0.12;
-  img._vy = (Math.random() - 0.5) * 0.12;
-
-  img._floating = true;
+  img.floating = true;
 
   img.style.transform = `translate(${x}px, ${y}px)`;
 
   originals.push({ img, x, y });
 });
 
-/* =====================================================
-   FLOATING MOTION (vector-based, smooth)
-===================================================== */
+/* ===============================
+   FLOATING — NO JITTER
+================================ */
 
 function floatImages() {
-
   if (!activeProject) {
     images.forEach(img => {
+      if (!img.floating) return;
 
-      if (!img._floating) return;
+      img.x += img.vx;
+      img.y += img.vy;
 
-      img._tx += img._vx;
-      img._ty += img._vy;
-
-      const margin = 80;
-      const maxX = window.innerWidth - margin;
-      const maxY = window.innerHeight - margin;
-
-      if (img._tx < margin || img._tx > maxX) img._vx *= -1;
-      if (img._ty < margin || img._ty > maxY) img._vy *= -1;
-
-      img._x += (img._tx - img._x) * 0.02;
-      img._y += (img._ty - img._y) * 0.02;
+      const m = 60;
+      if (img.x < m || img.x > innerWidth - m) img.vx *= -1;
+      if (img.y < m || img.y > innerHeight - m) img.vy *= -1;
 
       img.style.transform =
-        `translate(${img._x}px, ${img._y}px)`;
+        `translate(${Math.round(img.x)}px, ${Math.round(img.y)}px)`;
     });
   }
-
   requestAnimationFrame(floatImages);
 }
-
 floatImages();
 
-/* =====================================================
-   IMAGE CLICK
-===================================================== */
+/* ===============================
+   GROUP ACTIVATION
+================================ */
 
 images.forEach(img => {
-  img.addEventListener('click', e => {
+  img.addEventListener("click", e => {
     if (activeProject) return;
     e.stopPropagation();
     activateGroup(img.dataset.project);
   });
 });
 
-/* =====================================================
-   GROUP LOGIC
-===================================================== */
-
 function activateGroup(project) {
 
-  storedScale = targetScale;
-  storedOriginX = targetOriginX;
-  storedOriginY = targetOriginY;
+  stored = {
+    x: targetOriginX,
+    y: targetOriginY,
+    s: targetScale
+  };
 
   activeProject = project;
 
-  // fade background
   images.forEach(img => {
     img.style.opacity =
-      img.dataset.project === project ? '1' : '0.15';
-
-    img._floating = img.dataset.project !== project;
+      img.dataset.project === project ? "1" : "0.15";
+    img.floating = false;
   });
 
-  /* --- ACT 1: zoom out --- */
-  targetScale = 0.7;
+  /* zoom out */
+  targetScale = 0.75;
   targetOriginX = window.innerWidth * 0.15;
   targetOriginY = window.innerHeight * 0.15;
 
-  /* --- ACT 2: regroup --- */
+  /* regroup */
   setTimeout(() => {
 
-    const groupImages =
-      images.filter(i => i.dataset.project === project);
+    const group = images.filter(i => i.dataset.project === project);
 
-    const left = window.innerWidth * 0.18;
-    const top = window.innerHeight * 0.2;
-    const bottom = window.innerHeight * 0.8;
+    const cx = (-originX + window.innerWidth * 0.35) / scale;
+    const cy = (-originY + window.innerHeight * 0.5) / scale;
 
-    groupImages.forEach(img => {
+    group.forEach((img, i) => {
+      const angle = i * 0.6;
+      const r = 140;
 
-      const x = left + (Math.random() - 0.5) * 120;
-      const y = top + Math.random() * (bottom - top);
+      img.x = cx + Math.cos(angle) * r;
+      img.y = cy + Math.sin(angle) * r;
 
-      img._x = x;
-      img._y = y;
-      img._tx = x;
-      img._ty = y;
-
-      img.style.width = '320px';
+      img.style.width = "320px";
       img.style.zIndex = 1000;
-      img.style.transform = `translate(${x}px, ${y}px)`;
+
+      img.style.transform =
+        `translate(${img.x}px, ${img.y}px)`;
     });
 
-    /* --- ACT 3: zoom in --- */
     targetScale = 1;
     targetOriginX = 0;
     targetOriginY = 0;
 
-    /* --- text appears slightly after zoom-in begins --- */
+    /* text timing — perceptual, not math */
     setTimeout(() => {
+      descriptions.classList.add("visible");
+      [...descriptions.children].forEach(d =>
+        d.style.display =
+          d.dataset.project === project ? "block" : "none"
+      );
+    }, 300);
 
-      descriptions.classList.add('visible');
-
-      Array.from(descriptions.children).forEach(desc => {
-        desc.style.display =
-          desc.dataset.project === project ? 'block' : 'none';
-      });
-
-    }, 260);
-
-  }, 600);
+  }, 550);
 }
 
-/* =====================================================
-   DRAGGING (group only)
-===================================================== */
+/* ===============================
+   DRAG
+================================ */
 
 images.forEach(img => {
-  img.addEventListener('pointerdown', e => {
-
+  img.addEventListener("pointerdown", e => {
     if (!activeProject) return;
     if (img.dataset.project !== activeProject) return;
-    if (e.button !== 0) return;
 
     e.preventDefault();
-    e.stopPropagation();
 
-    img.setPointerCapture(e.pointerId);
-
-    const startX = img._x;
-    const startY = img._y;
-    const mouseX = e.clientX;
-    const mouseY = e.clientY;
+    const sx = img.x;
+    const sy = img.y;
+    const mx = e.clientX;
+    const my = e.clientY;
 
     function move(ev) {
-      const dx = (ev.clientX - mouseX) / scale;
-      const dy = (ev.clientY - mouseY) / scale;
-
-      img._x = startX + dx;
-      img._y = startY + dy;
-
-      img._tx = img._x;
-      img._ty = img._y;
+      img.x = sx + (ev.clientX - mx) / scale;
+      img.y = sy + (ev.clientY - my) / scale;
 
       img.style.transform =
-        `translate(${img._x}px, ${img._y}px)`;
+        `translate(${img.x}px, ${img.y}px)`;
     }
 
-    function up(ev) {
-      img.releasePointerCapture(ev.pointerId);
-      img.removeEventListener('pointermove', move);
-      img.removeEventListener('pointerup', up);
+    function up() {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
     }
 
-    img.addEventListener('pointermove', move);
-    img.addEventListener('pointerup', up);
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
   });
 });
 
-/* =====================================================
-   ESC RESTORE
-===================================================== */
+/* ===============================
+   ESC RESET
+================================ */
 
-window.addEventListener('keydown', e => {
-  if (e.key !== 'Escape') return;
+window.addEventListener("keydown", e => {
+  if (e.key !== "Escape") return;
 
   activeProject = null;
-  descriptions.classList.remove('visible');
+  descriptions.classList.remove("visible");
 
   images.forEach(img => {
-    img._floating = true;
-    img.style.opacity = '1';
+    img.floating = true;
+    img.style.opacity = "1";
+    img.style.width = "100px";
     img.style.zIndex = 1;
-    img.style.width = '100px';
   });
 
   originals.forEach(o => {
-    o.img._x = o.x;
-    o.img._y = o.y;
-    o.img._tx = o.x;
-    o.img._ty = o.y;
+    o.img.x = o.x;
+    o.img.y = o.y;
     o.img.style.transform =
       `translate(${o.x}px, ${o.y}px)`;
   });
 
-  targetScale = storedScale;
-  targetOriginX = storedOriginX;
-  targetOriginY = storedOriginY;
+  targetOriginX = stored.x;
+  targetOriginY = stored.y;
+  targetScale = stored.s;
 });
