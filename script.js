@@ -247,10 +247,17 @@ function activateGroup(project) {
       toY: 0
     });
 
-    setTimeout(() => {
-      descriptions.hidden = false;
-      cinematicActive = false;
-    }, 700);
+  setTimeout(() => {
+  descriptions.hidden = false;
+
+  Array.from(descriptions.children).forEach(desc => {
+    desc.style.display =
+      desc.dataset.project === project ? 'block' : 'none';
+  });
+
+  cinematicActive = false;
+}, 700);
+
 
   }, 600);
 }
@@ -336,3 +343,4 @@ window.addEventListener('keydown', e => {
     toY: storedOriginY
   });
 });
+
