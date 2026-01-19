@@ -65,9 +65,9 @@ cameraLoop();
 
 function cameraSettled() {
   return (
-    Math.abs(originX - targetOriginX) < 0.4 &&
-    Math.abs(originY - targetOriginY) < 0.4 &&
-    Math.abs(scale - targetScale) < 0.002
+    Math.abs(originX - targetOriginX) < 1.2 &&
+    Math.abs(originY - targetOriginY) < 1.2 &&
+    Math.abs(scale - targetScale) < 0.01
   );
 }
 
