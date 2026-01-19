@@ -229,6 +229,36 @@ function activateGroup(project) {
     targetOriginY = 0;
 
   }, 600);
+
+setTimeout(() => {
+
+  const waitForCamera = () => {
+    const done =
+      Math.abs(scale - targetScale) < 0.001 &&
+      Math.abs(originX - targetOriginX) < 0.5 &&
+      Math.abs(originY - targetOriginY) < 0.5;
+
+    if (done) {
+
+      descriptions.classList.add('visible');
+
+      Array.from(descriptions.children).forEach(desc => {
+        desc.style.display =
+          desc.dataset.project === project ? 'block' : 'none';
+      });
+
+      cinematicActive = false;
+      return;
+    }
+
+    requestAnimationFrame(waitForCamera);
+  };
+
+  requestAnimationFrame(waitForCamera);
+
+}, 650);
+
+
 }
 
 /* ======================
