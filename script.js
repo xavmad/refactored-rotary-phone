@@ -232,13 +232,23 @@ function activateGroup(project) {
 
 setTimeout(() => {
 
-  const waitForCamera = () => {
-    const done =
-      Math.abs(scale - targetScale) < 0.001 &&
-      Math.abs(originX - targetOriginX) < 0.5 &&
-      Math.abs(originY - targetOriginY) < 0.5;
+  let stillFrames = 0;
 
-    if (done) {
+  const waitForCamera = () => {
+
+    const dx = Math.abs(targetOriginX - originX);
+    const dy = Math.abs(targetOriginY - originY);
+    const ds = Math.abs(targetScale - scale);
+
+    // must be stable for several frames
+    if (dx < 0.3 && dy < 0.3 && ds < 0.0008) {
+      stillFrames++;
+    } else {
+      stillFrames = 0;
+    }
+
+    // require stability across frames
+    if (stillFrames > 12) {
 
       descriptions.classList.add('visible');
 
@@ -257,6 +267,7 @@ setTimeout(() => {
   requestAnimationFrame(waitForCamera);
 
 }, 650);
+
 
 
 }
@@ -284,3 +295,4 @@ window.addEventListener('keydown', e => {
   targetOriginX = storedOriginX;
   targetOriginY = storedOriginY;
 });
+
