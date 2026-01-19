@@ -46,14 +46,14 @@ function applyTransform() {
 ====================== */
 
 function cameraLoop() {
-  
-originX += (targetOriginX - originX) * PAN_EASE;
-originY += (targetOriginY - originY) * PAN_EASE;
-scale   += (targetScale   - scale)   * ZOOM_EASE;
 
-if (Math.abs(targetOriginX - originX) < 0.01) originX = targetOriginX;
-if (Math.abs(targetOriginY - originY) < 0.01) originY = targetOriginY;
-if (Math.abs(targetScale   - scale)   < 0.0005) scale = targetScale;
+  originX += (targetOriginX - originX) * PAN_EASE;
+  originY += (targetOriginY - originY) * PAN_EASE;
+  scale   += (targetScale   - scale)   * ZOOM_EASE;
+
+  if (Math.abs(targetOriginX - originX) < 0.01) originX = targetOriginX;
+  if (Math.abs(targetOriginY - originY) < 0.01) originY = targetOriginY;
+  if (Math.abs(targetScale   - scale)   < 0.0005) scale = targetScale;
 
   applyTransform();
   requestAnimationFrame(cameraLoop);
@@ -127,66 +127,56 @@ images.forEach(img => {
   img.style.left = `${x}px`;
   img.style.top  = `${y}px`;
 
+  // ✅ vector position
+  img._x = x;
+  img._y = y;
+
+  // ✅ vector velocity
   img._vx = (Math.random() - 0.5) * 0.12;
   img._vy = (Math.random() - 0.5) * 0.12;
-
-  img._tx = x;
-  img._ty = y;
-
 
   originals.push({ img, x, y });
 });
 
 /* ======================
-   FLOATING
+   FLOATING (VECTOR BASED)
 ====================== */
 
 function floatImages() {
+
   if (!activeProject) {
+
     images.forEach(img => {
 
-      let x = parseFloat(img.dataset.x);
-      let y = parseFloat(img.dataset.y);
-
-      // init targets safely
-      if (img._tx === undefined) img._tx = x;
-      if (img._ty === undefined) img._ty = y;
-
-      // move targets
-      img._tx += img._vx;
-      img._ty += img._vy;
+      // integrate velocity
+      img._x += img._vx;
+      img._y += img._vy;
 
       const m = 80;
-      const maxX = window.innerWidth - m;
+      const maxX = window.innerWidth  - m;
       const maxY = window.innerHeight - m;
 
-      // clamp + bounce (CRITICAL)
-      if (img._tx < m) {
-        img._tx = m;
+      // bounce cleanly
+      if (img._x < m || img._x > maxX) {
         img._vx *= -1;
-      } else if (img._tx > maxX) {
-        img._tx = maxX;
-        img._vx *= -1;
+        img._x += img._vx;
       }
 
-      if (img._ty < m) {
-        img._ty = m;
+      if (img._y < m || img._y > maxY) {
         img._vy *= -1;
-      } else if (img._ty > maxY) {
-        img._ty = maxY;
-        img._vy *= -1;
+        img._y += img._vy;
       }
 
-      // ease toward target
-      x += (img._tx - x) * 0.03;
-      y += (img._ty - y) * 0.03;
+      // very gentle drag (prevents chaos)
+      img._vx *= 0.999;
+      img._vy *= 0.999;
 
-      img.dataset.x = x;
-      img.dataset.y = y;
+      img.dataset.x = img._x;
+      img.dataset.y = img._y;
 
-      img.style.left = `${Math.round(x)}px`;
-      img.style.top  = `${Math.round(y)}px`;
-
+      // render
+      img.style.left = `${Math.round(img._x)}px`;
+      img.style.top  = `${Math.round(img._y)}px`;
     });
   }
 
@@ -194,8 +184,6 @@ function floatImages() {
 }
 
 floatImages();
-
-
 
 /* ======================
    GROUP ACTIVATION
@@ -251,6 +239,9 @@ function activateGroup(project) {
       img.dataset.x = x;
       img.dataset.y = y;
 
+      img._x = x;
+      img._y = y;
+
       img.style.width = '320px';
       img.style.left = `${x}px`;
       img.style.top  = `${y}px`;
@@ -285,6 +276,10 @@ window.addEventListener('keydown', e => {
     o.img.style.width = '100px';
     o.img.style.opacity = '1';
     o.img.style.zIndex = 1;
+
+    o.img._x = o.x;
+    o.img._y = o.y;
+
     o.img.style.left = `${o.x}px`;
     o.img.style.top  = `${o.y}px`;
   });
@@ -295,5 +290,3 @@ window.addEventListener('keydown', e => {
     toY: storedOriginY
   });
 });
-
-
