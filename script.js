@@ -252,17 +252,6 @@ function activateGroup(project) {
   descriptions.hidden = false;
   descriptions.classList.add('visible');
 
-
-  descriptions.style.position = 'fixed';
-  descriptions.style.right = '4%';
-  descriptions.style.top = '50%';
-  descriptions.style.transform = 'translateY(-50%)';
-  descriptions.style.width = '32vw';
-  descriptions.style.maxHeight = '60vh';
-  descriptions.style.overflowY = 'auto';
-  descriptions.style.zIndex = '5000';
-  descriptions.style.pointerEvents = 'auto';
-
   Array.from(descriptions.children).forEach(desc => {
     desc.style.display =
       desc.dataset.project === project ? 'block' : 'none';
