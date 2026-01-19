@@ -3,9 +3,9 @@ const canvas = document.getElementById('canvas');
 const images = Array.from(document.querySelectorAll('.image'));
 const descriptions = document.getElementById('project-descriptions');
 
-/* ======================
+/* =====================================================
    CAMERA STATE
-====================== */
+===================================================== */
 
 let originX = 0;
 let originY = 0;
@@ -27,31 +27,23 @@ let storedScale = 1;
 let storedOriginX = 0;
 let storedOriginY = 0;
 
-/* ======================
-   UTILS
-====================== */
-
-function lerp(a, b, t) {
-  return a + (b - a) * t;
-}
+/* =====================================================
+   UTILITIES
+===================================================== */
 
 function applyTransform() {
   canvas.style.transform =
     `translate(${originX}px, ${originY}px) scale(${scale})`;
 }
 
-/* ======================
-   CAMERA LOOP
-====================== */
+/* =====================================================
+   CAMERA LOOP (single authority)
+===================================================== */
 
 function cameraLoop() {
   originX += (targetOriginX - originX) * PAN_EASE;
   originY += (targetOriginY - originY) * PAN_EASE;
   scale   += (targetScale   - scale)   * ZOOM_EASE;
-
-  if (Math.abs(targetOriginX - originX) < 0.01) originX = targetOriginX;
-  if (Math.abs(targetOriginY - originY) < 0.01) originY = targetOriginY;
-  if (Math.abs(targetScale - scale) < 0.0005) scale = targetScale;
 
   applyTransform();
   requestAnimationFrame(cameraLoop);
@@ -59,24 +51,9 @@ function cameraLoop() {
 
 cameraLoop();
 
-/* ======================
-   CAMERA SETTLED
-====================== */
-
-function cameraSettled() {
-  return (
-    Math.abs(originX - targetOriginX) < 4 &&
-    Math.abs(originY - targetOriginY) < 4 &&
-    Math.abs(scale - targetScale) < 0.03
-  );
-}
-
-
-
-
-/* ======================
+/* =====================================================
    ZOOM
-====================== */
+===================================================== */
 
 viewport.addEventListener('wheel', e => {
   if (activeProject) return;
@@ -99,9 +76,9 @@ viewport.addEventListener('wheel', e => {
   targetOriginY = mouseY - worldY * targetScale;
 });
 
-/* ======================
+/* =====================================================
    PAN
-====================== */
+===================================================== */
 
 viewport.addEventListener('mousedown', e => {
   if (activeProject) return;
@@ -124,50 +101,59 @@ viewport.addEventListener('mousedown', e => {
   window.addEventListener('mouseup', up);
 });
 
-/* ======================
-   INITIAL IMAGE LAYOUT
-====================== */
+/* =====================================================
+   INITIAL IMAGE SETUP
+===================================================== */
 
 const originals = [];
 
 images.forEach(img => {
+
   const x = Math.random() * window.innerWidth;
   const y = Math.random() * window.innerHeight;
 
-  img.dataset.x = x;
-  img.dataset.y = y;
+  img._x = x;
+  img._y = y;
 
-  img.style.left = `${x}px`;
-  img.style.top  = `${y}px`;
+  img._tx = x;
+  img._ty = y;
 
-  img._vx = (Math.random() - 0.5) * 0.08;
-  img._vy = (Math.random() - 0.5) * 0.08;
+  img._vx = (Math.random() - 0.5) * 0.12;
+  img._vy = (Math.random() - 0.5) * 0.12;
+
+  img._floating = true;
+
+  img.style.transform = `translate(${x}px, ${y}px)`;
 
   originals.push({ img, x, y });
 });
 
-/* ======================
-   FLOATING (SMOOTH)
-====================== */
+/* =====================================================
+   FLOATING MOTION (vector-based, smooth)
+===================================================== */
 
 function floatImages() {
+
   if (!activeProject) {
     images.forEach(img => {
-      let x = parseFloat(img.dataset.x);
-      let y = parseFloat(img.dataset.y);
 
-      x += img._vx;
-      y += img._vy;
+      if (!img._floating) return;
 
-      const m = 80;
-      if (x < m || x > window.innerWidth - m) img._vx *= -1;
-      if (y < m || y > window.innerHeight - m) img._vy *= -1;
+      img._tx += img._vx;
+      img._ty += img._vy;
 
-      img.dataset.x = x;
-      img.dataset.y = y;
+      const margin = 80;
+      const maxX = window.innerWidth - margin;
+      const maxY = window.innerHeight - margin;
 
-      img.style.left = `${x}px`;
-      img.style.top  = `${y}px`;
+      if (img._tx < margin || img._tx > maxX) img._vx *= -1;
+      if (img._ty < margin || img._ty > maxY) img._vy *= -1;
+
+      img._x += (img._tx - img._x) * 0.02;
+      img._y += (img._ty - img._y) * 0.02;
+
+      img.style.transform =
+        `translate(${img._x}px, ${img._y}px)`;
     });
   }
 
@@ -176,9 +162,9 @@ function floatImages() {
 
 floatImages();
 
-/* ======================
+/* =====================================================
    IMAGE CLICK
-====================== */
+===================================================== */
 
 images.forEach(img => {
   img.addEventListener('click', e => {
@@ -188,9 +174,9 @@ images.forEach(img => {
   });
 });
 
-/* ======================
+/* =====================================================
    GROUP LOGIC
-====================== */
+===================================================== */
 
 function activateGroup(project) {
 
@@ -208,12 +194,12 @@ function activateGroup(project) {
     img._floating = img.dataset.project !== project;
   });
 
-  // ACT 1 — zoom out
+  /* --- ACT 1: zoom out --- */
   targetScale = 0.7;
   targetOriginX = window.innerWidth * 0.15;
   targetOriginY = window.innerHeight * 0.15;
 
-  // ACT 2 — regroup after zoom-out
+  /* --- ACT 2: regroup --- */
   setTimeout(() => {
 
     const groupImages =
@@ -225,14 +211,8 @@ function activateGroup(project) {
 
     groupImages.forEach(img => {
 
-      const x =
-  (left - originX) / scale +
-  (Math.random() - 0.5) * 120;
-
-const y =
-  (top - originY) / scale +
-  Math.random() * (bottom - top);
-
+      const x = left + (Math.random() - 0.5) * 120;
+      const y = top + Math.random() * (bottom - top);
 
       img._x = x;
       img._y = y;
@@ -244,50 +224,96 @@ const y =
       img.style.transform = `translate(${x}px, ${y}px)`;
     });
 
-    // ACT 3 — zoom in
+    /* --- ACT 3: zoom in --- */
     targetScale = 1;
     targetOriginX = 0;
     targetOriginY = 0;
 
-    // WAIT FOR CAMERA TO FINISH
-    const wait = () => {
-      if (cameraSettled()) {
+    /* --- text appears slightly after zoom-in begins --- */
+    setTimeout(() => {
 
-        descriptions.classList.add('visible');
+      descriptions.classList.add('visible');
 
-        Array.from(descriptions.children).forEach(desc => {
-          desc.style.display =
-            desc.dataset.project === project ? 'block' : 'none';
-        });
+      Array.from(descriptions.children).forEach(desc => {
+        desc.style.display =
+          desc.dataset.project === project ? 'block' : 'none';
+      });
 
-        return;
-      }
-      requestAnimationFrame(wait);
-    };
-
-    requestAnimationFrame(wait);
+    }, 260);
 
   }, 600);
 }
 
+/* =====================================================
+   DRAGGING (group only)
+===================================================== */
 
-/* ======================
-   ESC — RESTORE
-====================== */
+images.forEach(img => {
+  img.addEventListener('pointerdown', e => {
+
+    if (!activeProject) return;
+    if (img.dataset.project !== activeProject) return;
+    if (e.button !== 0) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    img.setPointerCapture(e.pointerId);
+
+    const startX = img._x;
+    const startY = img._y;
+    const mouseX = e.clientX;
+    const mouseY = e.clientY;
+
+    function move(ev) {
+      const dx = (ev.clientX - mouseX) / scale;
+      const dy = (ev.clientY - mouseY) / scale;
+
+      img._x = startX + dx;
+      img._y = startY + dy;
+
+      img._tx = img._x;
+      img._ty = img._y;
+
+      img.style.transform =
+        `translate(${img._x}px, ${img._y}px)`;
+    }
+
+    function up(ev) {
+      img.releasePointerCapture(ev.pointerId);
+      img.removeEventListener('pointermove', move);
+      img.removeEventListener('pointerup', up);
+    }
+
+    img.addEventListener('pointermove', move);
+    img.addEventListener('pointerup', up);
+  });
+});
+
+/* =====================================================
+   ESC RESTORE
+===================================================== */
 
 window.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
 
   activeProject = null;
-
   descriptions.classList.remove('visible');
 
+  images.forEach(img => {
+    img._floating = true;
+    img.style.opacity = '1';
+    img.style.zIndex = 1;
+    img.style.width = '100px';
+  });
+
   originals.forEach(o => {
-    o.img.style.width = '100px';
-    o.img.style.opacity = '1';
-    o.img.style.zIndex = 1;
-    o.img.style.left = `${o.x}px`;
-    o.img.style.top  = `${o.y}px`;
+    o.img._x = o.x;
+    o.img._y = o.y;
+    o.img._tx = o.x;
+    o.img._ty = o.y;
+    o.img.style.transform =
+      `translate(${o.x}px, ${o.y}px)`;
   });
 
   targetScale = storedScale;
