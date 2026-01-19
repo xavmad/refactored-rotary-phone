@@ -249,7 +249,6 @@ function activateGroup(project) {
 
  setTimeout(() => {
 
-  descriptions.hidden = false;
   descriptions.classList.add('visible');
 
   Array.from(descriptions.children).forEach(desc => {
@@ -324,7 +323,6 @@ window.addEventListener('keydown', e => {
   activeProject = null;
 
   descriptions.classList.remove('visible');
-  descriptions.hidden = true;
 
   images.forEach(img => {
     img._floating = true;
