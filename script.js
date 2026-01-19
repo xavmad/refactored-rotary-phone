@@ -184,8 +184,9 @@ function floatImages() {
       img.dataset.x = x;
       img.dataset.y = y;
 
-      img.style.left = `${x}px`;
-      img.style.top  = `${y}px`;
+      img.style.left = `${Math.round(x)}px`;
+      img.style.top  = `${Math.round(y)}px`;
+
     });
   }
 
@@ -294,4 +295,5 @@ window.addEventListener('keydown', e => {
     toY: storedOriginY
   });
 });
+
 
