@@ -136,7 +136,7 @@ p {
 
 #project-descriptions {
   position: fixed;
-  right: 8vw;
+  left: 75vw;
   top: 50%;
 
   width: 32vw;
@@ -189,3 +189,4 @@ p {
   font-weight: 600;
   letter-spacing: 0.03em;
 }
+
