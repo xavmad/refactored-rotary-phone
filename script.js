@@ -65,11 +65,13 @@ cameraLoop();
 
 function cameraSettled() {
   return (
-    Math.abs(originX - targetOriginX) < 1.2 &&
-    Math.abs(originY - targetOriginY) < 1.2 &&
-    Math.abs(scale - targetScale) < 0.01
+    Math.abs(originX - targetOriginX) < 4 &&
+    Math.abs(originY - targetOriginY) < 4 &&
+    Math.abs(scale - targetScale) < 0.03
   );
 }
+
+
 
 
 /* ======================
@@ -223,8 +225,14 @@ function activateGroup(project) {
 
     groupImages.forEach(img => {
 
-      const x = left + (Math.random() - 0.5) * 120;
-      const y = top + Math.random() * (bottom - top);
+      const x =
+  (left - originX) / scale +
+  (Math.random() - 0.5) * 120;
+
+const y =
+  (top - originY) / scale +
+  Math.random() * (bottom - top);
+
 
       img._x = x;
       img._y = y;
