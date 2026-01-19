@@ -138,14 +138,15 @@ p {
 -------------------- */
 
 #project-descriptions {
-  background: rgba(15,15,15,0.9);
-  padding: 1.5em;
-  border-radius: 10px;
-  border: 1px solid rgba(255,255,255,0.15);
-  box-shadow: 0 10px 40px rgba(0,0,0,0.6);
-  backdrop-filter: blur(6px);
-
-  will-change: transform;
-  cursor: grab;
+  position: fixed;
+  right: 4%;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 5000;
+  max-width: 32vw;
+  max-height: 60vh;
+  overflow-y: auto;
 }
+
+
 
