@@ -1,13 +1,12 @@
-/* =========================
-   PIXI SETUP
-========================= */
-
 const viewport = document.getElementById("viewport");
 const images = Array.from(document.querySelectorAll(".image"));
 const descriptions = document.getElementById("project-descriptions");
 
-// hide DOM images (Pixi replaces them)
 images.forEach(img => img.style.display = "none");
+
+/* =========================
+   PIXI APP
+========================= */
 
 const app = new PIXI.Application({
   resizeTo: viewport,
@@ -20,14 +19,14 @@ const app = new PIXI.Application({
 viewport.appendChild(app.view);
 
 /* =========================
-   WORLD CONTAINER
+   WORLD
 ========================= */
 
 const world = new PIXI.Container();
 app.stage.addChild(world);
 
 /* =========================
-   CAMERA STATE
+   CAMERA
 ========================= */
 
 let scale = 1;
@@ -52,26 +51,31 @@ const sprites = [];
 const DESIRED_WIDTH = 100;
 
 images.forEach(img => {
+
   const texture = PIXI.Texture.from(img.src);
   const sprite = new PIXI.Sprite(texture);
 
-  // center pivot
   sprite.anchor.set(0.5);
 
-  // 🔑 match old CSS width: 100px
-  const scale = DESIRED_WIDTH / texture.width;
-  sprite.scale.set(scale);
+  // 🔑 WAIT UNTIL IMAGE IS READY
+  if (texture.baseTexture.valid) {
+    const s = DESIRED_WIDTH / texture.width;
+    sprite.scale.set(s);
+  } else {
+    texture.baseTexture.on("loaded", () => {
+      const s = DESIRED_WIDTH / texture.width;
+      sprite.scale.set(s);
+    });
+  }
 
-  // random layout
   sprite.x = Math.random() * window.innerWidth;
   sprite.y = Math.random() * window.innerHeight;
 
-  // smooth vector motion
-  sprite.vx = (Math.random() - 0.5) * 0.3;
-  sprite.vy = (Math.random() - 0.5) * 0.3;
-
   sprite.tx = sprite.x;
   sprite.ty = sprite.y;
+
+  sprite.vx = (Math.random() - 0.5) * 0.3;
+  sprite.vy = (Math.random() - 0.5) * 0.3;
 
   sprite.project = img.dataset.project;
 
@@ -119,7 +123,6 @@ viewport.addEventListener("mousedown", e => {
 
 window.addEventListener("mousemove", e => {
   if (!panning) return;
-
   targetOriginX = e.clientX - panStartX;
   targetOriginY = e.clientY - panStartY;
 });
@@ -129,31 +132,29 @@ window.addEventListener("mouseup", () => {
 });
 
 /* =========================
-   MAIN LOOP
+   LOOP
 ========================= */
 
 app.ticker.add(() => {
 
-  // camera easing
   originX += (targetOriginX - originX) * PAN_EASE;
   originY += (targetOriginY - originY) * PAN_EASE;
   scale   += (targetScale   - scale)   * ZOOM_EASE;
 
-  world.scale.set(scale);
   world.position.set(originX, originY);
+  world.scale.set(scale);
 
-  // floating motion
   sprites.forEach(s => {
 
     s.tx += s.vx;
     s.ty += s.vy;
 
-    const margin = 120;
-    const maxX = window.innerWidth - margin;
-    const maxY = window.innerHeight - margin;
+    const m = 120;
+    const maxX = window.innerWidth - m;
+    const maxY = window.innerHeight - m;
 
-    if (s.tx < margin || s.tx > maxX) s.vx *= -1;
-    if (s.ty < margin || s.ty > maxY) s.vy *= -1;
+    if (s.tx < m || s.tx > maxX) s.vx *= -1;
+    if (s.ty < m || s.ty > maxY) s.vy *= -1;
 
     s.x += (s.tx - s.x) * 0.02;
     s.y += (s.ty - s.y) * 0.02;
