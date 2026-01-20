@@ -125,7 +125,7 @@ p {
   position: fixed;
 
   /* 🎯 center of right half */
-  left: 76vw;        /* move freely */
+  left: 90vw;        /* move freely */
   top: 50%;
 
   transform: translateY(-50%);
@@ -197,3 +197,4 @@ p {
 #project-descriptions::-webkit-scrollbar-track {
   background: transparent;
 }
+
