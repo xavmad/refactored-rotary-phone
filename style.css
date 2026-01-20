@@ -124,11 +124,8 @@ p {
 #project-descriptions {
   position: fixed;
 
-  /* ✅ anchor to right side cleanly */
-  right: 20vw;
+  right: 12vw;        /* ← move left/right here */
   top: 50%;
-
-  transform: translateY(-50%) translateX(40px);
 
   width: 30vw;
   max-width: 440px;
@@ -136,7 +133,7 @@ p {
 
   padding: 1.9rem 2.2rem;
 
-  background: rgba(14, 14, 14, 0.72);
+  background: rgba(14,14,14,0.72);
   backdrop-filter: blur(18px);
 
   border-radius: 22px;
@@ -146,18 +143,20 @@ p {
     0 30px 90px rgba(0,0,0,0.75),
     inset 0 0 0 1px rgba(255,255,255,0.04);
 
-  color: white;
   overflow-y: auto;
+  color: white;
 
   z-index: 6000;
 
   opacity: 0;
   pointer-events: none;
 
+  transform: translateY(-50%);
   transition:
     opacity 0.45s ease,
     transform 0.65s cubic-bezier(.19,1,.22,1);
 }
+
 
 #project-descriptions.visible {
   opacity: 1;
