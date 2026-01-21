@@ -114,7 +114,7 @@ html, body {
 }
 
 #logo-links > *:nth-child(2) {
-  margin-left: 10px;
+  margin-left: 16px;
 }
 
 #logo-links > *:nth-child(3) {
@@ -213,5 +213,6 @@ html, body {
   pointer-events: auto;
   transform: none;
 }
+
 
 
