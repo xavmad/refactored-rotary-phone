@@ -90,7 +90,7 @@ html, body {
 
 #logo-links a,
 #logo-links div {
-  font-family: "Rubik Beastly", system-ui, sans-serif;
+  font-family: "Jacquard 12", system-ui, sans-serif;
   font-size: 1rem;
   font-weight: 400;
 
@@ -260,5 +260,6 @@ html, body {
   background: white;
   transition: width 0.3s ease;
 }
+
 
 
