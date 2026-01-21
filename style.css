@@ -118,7 +118,7 @@ html, body {
 }
 
 #logo-links > *:nth-child(3) {
-  margin-left: 12px;
+  margin-left: 16px;
 }
 /* =====================================================
    ABOUT DESCRIPTION PANEL
@@ -211,5 +211,6 @@ html, body {
   pointer-events: auto;
   transform: none;
 }
+
 
 
