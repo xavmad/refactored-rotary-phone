@@ -1,16 +1,36 @@
-/* DOM Queries*/
+/* =====================================================
+   MOBILE FLAG
+===================================================== */
+
+const IS_MOBILE = window.matchMedia("(max-width: 768px)").matches;
+
+
+/* =====================================================
+   DOM QUERIES
+===================================================== */
+
 const viewport = document.getElementById("viewport");
 const canvas = document.getElementById("canvas");
-const images = Array.from(document.querySelectorAll(".image"));
+
+const allImages = Array.from(document.querySelectorAll(".image"));
+const logo = document.getElementById("loader-logo");
+
+// everything except the logo
+const images = allImages.filter(img => img !== logo);
+
 const descriptions = document.getElementById("project-descriptions");
 
-/* loader DOM */
 const loader = document.getElementById("loader");
 const loaderBar = document.querySelector(".loader-progress");
 
+
 /* =====================================================
-   IMAGES PRELOAD
+   IMAGE PRELOAD
 ===================================================== */
+
+if (logo && !logo.complete) {
+  logo.src = logo.src; // forces immediate request
+}
 
 let loaded = 0;
 const total = images.length;
@@ -49,20 +69,75 @@ let targetOriginX = 0;
 let targetOriginY = 0;
 let targetScale = 1;
 
-const MIN_SCALE = 0.6;
-const MAX_SCALE = 1.8;
+originX = window.innerWidth / 2;
+originY = window.innerHeight / 2;
+
+targetOriginX = originX;
+targetOriginY = originY;
+
+const CAMERA_CENTER_X = originX;
+const CAMERA_CENTER_Y = originY;
+
+const MIN_SCALE = IS_MOBILE ? 0.9 : 0.7;
+const MAX_SCALE = IS_MOBILE ? 3.0 : 2.0;
 
 const PAN_EASE = 0.07;
-const ZOOM_EASE = 0.045;
+const ZOOM_EASE = 0.05;
 
 let activeProject = null;
 
-let storedScale = 1;
-let storedOriginX = 0;
-let storedOriginY = 0;
 
 /* =====================================================
-   CAMERA
+   DESKTOP SMOOTH WHEEL STATE
+===================================================== */
+
+let smoothWheel = 0;
+let lastMouseX = window.innerWidth / 2;
+let lastMouseY = window.innerHeight / 2;
+
+viewport.addEventListener("mousemove", e => {
+  lastMouseX = e.clientX;
+  lastMouseY = e.clientY;
+});
+
+/* =====================================================
+   CLAMP PAN/BORDER
+===================================================== */
+
+const WORLD_SCALE = 1.6;
+const PAN_MARGIN_DESKTOP = 260;
+const PAN_MARGIN_MOBILE  = 180;
+
+function clampPanTargets() {
+
+  const viewW = window.innerWidth;
+  const viewH = window.innerHeight;
+
+  const worldW = viewW * WORLD_SCALE * scale;
+  const worldH = viewH * WORLD_SCALE * scale;
+
+  const margin = IS_MOBILE
+    ? PAN_MARGIN_MOBILE
+    : PAN_MARGIN_DESKTOP;
+
+  const limitX = (worldW - viewW) / 2 + margin;
+  const limitY = (worldH - viewH) / 2 + margin;
+
+  targetOriginX = Math.max(
+    CAMERA_CENTER_X - limitX,
+    Math.min(CAMERA_CENTER_X + limitX, targetOriginX)
+  );
+
+  targetOriginY = Math.max(
+    CAMERA_CENTER_Y - limitY,
+    Math.min(CAMERA_CENTER_Y + limitY, targetOriginY)
+  );
+}
+
+
+
+/* =====================================================
+   CAMERA LOOP
 ===================================================== */
 
 function applyTransform() {
@@ -71,13 +146,39 @@ function applyTransform() {
 }
 
 function cameraLoop() {
+
+  /* desktop smooth zoom */
+  if (!IS_MOBILE && Math.abs(smoothWheel) > 0.05) {
+
+    const delta = smoothWheel * 0.12;
+    smoothWheel *= 0.94;
+
+    const worldX = (lastMouseX - originX) / scale;
+    const worldY = (lastMouseY - originY) / scale;
+
+    const zoom = Math.exp(-delta * 0.0015);
+
+    const newScale = Math.min(
+      Math.max(scale * zoom, MIN_SCALE),
+      MAX_SCALE
+    );
+
+    scale = newScale;
+
+    originX = lastMouseX - worldX * scale;
+    originY = lastMouseY - worldY * scale;
+
+    targetScale = scale;
+    targetOriginX = originX;
+    targetOriginY = originY;
+  }
+
+  clampPanTargets();
+
+  /* camera easing */
   originX += (targetOriginX - originX) * PAN_EASE;
   originY += (targetOriginY - originY) * PAN_EASE;
   scale   += (targetScale - scale) * ZOOM_EASE;
-
-  if (Math.abs(targetOriginX - originX) < 0.01) originX = targetOriginX;
-  if (Math.abs(targetOriginY - originY) < 0.01) originY = targetOriginY;
-  if (Math.abs(targetScale - scale) < 0.0005) scale = targetScale;
 
   applyTransform();
   requestAnimationFrame(cameraLoop);
@@ -86,37 +187,118 @@ function cameraLoop() {
 cameraLoop();
 
 /* =====================================================
-   ZOOM
+   DESKTOP WHEEL INPUT
 ===================================================== */
 
 viewport.addEventListener("wheel", e => {
-  if (activeProject) return;
+  if (IS_MOBILE || activeProject) return;
+  e.preventDefault();
+  smoothWheel += e.deltaY;
+}, { passive: false });
+
+
+/* =====================================================
+   MOBILE PINCH ZOOM  ✅ RESTORED WORKING VERSION
+===================================================== */
+
+let pinchActive = false;
+let pinchLock = false;
+let pinchStartDistance = 0;
+let pinchStartScale = 1;
+let pinchStartOriginX = 0;
+let pinchStartOriginY = 0;
+
+viewport.addEventListener("touchstart", e => {
+
+  if (!IS_MOBILE) return;
+
+  if (e.touches.length === 2) {
+
+    pinchActive = true;
+    pinchLock = true;
+
+    const a = e.touches[0];
+    const b = e.touches[1];
+
+    pinchStartDistance = Math.hypot(
+      a.clientX - b.clientX,
+      a.clientY - b.clientY
+    );
+
+    pinchStartScale = scale;
+    pinchStartOriginX = originX;
+    pinchStartOriginY = originY;
+  }
+}, { passive: false });
+
+
+viewport.addEventListener("touchmove", e => {
+
+  if (!pinchActive || e.touches.length !== 2) return;
+
   e.preventDefault();
 
-  const zoom = e.deltaY < 0 ? 1.12 : 0.88;
+  const a = e.touches[0];
+  const b = e.touches[1];
 
-  const mouseX = e.clientX;
-  const mouseY = e.clientY;
+  const dist = Math.hypot(
+    a.clientX - b.clientX,
+    a.clientY - b.clientY
+  );
 
-  const worldX = (mouseX - originX) / scale;
-  const worldY = (mouseY - originY) / scale;
+  const zoom = dist / pinchStartDistance;
 
-  targetScale = Math.min(
-    Math.max(targetScale * zoom, MIN_SCALE),
+  const midX = (a.clientX + b.clientX) / 2;
+  const midY = (a.clientY + b.clientY) / 2;
+
+  const worldX = (midX - pinchStartOriginX) / pinchStartScale;
+  const worldY = (midY - pinchStartOriginY) / pinchStartScale;
+
+  const newScale = Math.min(
+    Math.max(pinchStartScale * zoom, MIN_SCALE),
     MAX_SCALE
   );
 
-  targetOriginX = mouseX - worldX * targetScale;
-  targetOriginY = mouseY - worldY * targetScale;
+  scale = newScale;
+
+  originX = midX - worldX * scale;
+  originY = midY - worldY * scale;
+
+  targetScale = scale;
+  targetOriginX = originX;
+  targetOriginY = originY;
+
+}, { passive: false });
+
+
+viewport.addEventListener("touchend", e => {
+
+  if (pinchActive && e.touches.length < 2) {
+
+    pinchActive = false;
+
+    targetScale = scale;
+    targetOriginX = originX;
+    targetOriginY = originY;
+
+    setTimeout(() => {
+      pinchLock = false;
+    }, 60);
+  }
 });
+
 
 /* =====================================================
    PAN
 ===================================================== */
 
 viewport.addEventListener("mousedown", e => {
+
+  if (IS_MOBILE) return;
   if (activeProject) return;
   if (e.target.classList.contains("image")) return;
+  smoothWheel = 0;
+
 
   const startX = e.clientX - targetOriginX;
   const startY = e.clientY - targetOriginY;
@@ -135,15 +317,20 @@ viewport.addEventListener("mousedown", e => {
   window.addEventListener("mouseup", up);
 });
 
+
 /* =====================================================
    INITIAL IMAGE SETUP
 ===================================================== */
 
 const originals = [];
 
+const centerX = window.innerWidth / 2;
+const centerY = window.innerHeight / 2;
+
 images.forEach(img => {
-  const x = Math.random() * window.innerWidth;
-  const y = Math.random() * window.innerHeight;
+
+  const x = (Math.random() - 0.5) * window.innerWidth;
+  const y = (Math.random() - 0.5) * window.innerHeight;
 
   img._x = x;
   img._y = y;
@@ -157,16 +344,17 @@ images.forEach(img => {
 
   img.style.transform =
     `translate(${x}px, ${y}px) translate(-50%, -50%)`;
-
-  originals.push({ img, x, y });
 });
+
 
 /* =====================================================
    FLOATING MOTION
 ===================================================== */
 
 function floatImages() {
-  if (!activeProject) {
+
+  if (!activeProject || IS_MOBILE) {
+
     images.forEach(img => {
       if (!img._floating) return;
 
@@ -174,8 +362,9 @@ function floatImages() {
       img._ty += img._vy;
 
       const m = 80;
-      const maxX = window.innerWidth - m;
-      const maxY = window.innerHeight - m;
+
+      const maxX = window.innerWidth  * 1.6 - m;
+      const maxY = window.innerHeight * 1.6 - m;
 
       if (img._tx < m || img._tx > maxX) img._vx *= -1;
       if (img._ty < m || img._ty > maxY) img._vy *= -1;
@@ -193,20 +382,28 @@ function floatImages() {
 
 floatImages();
 
+
 /* =====================================================
    IMAGE CLICK
 ===================================================== */
 
 images.forEach(img => {
   img.addEventListener("click", e => {
-    if (activeProject) return;
     e.stopPropagation();
+
+    if (IS_MOBILE) {
+      openMobileGroup(img.dataset.project);
+      return;
+    }
+
+    if (activeProject) return;
     activateGroup(img.dataset.project);
   });
 });
 
+
 /* =====================================================
-   GROUP LOGIC
+   GROUP LOGIC — LEFT SIDE ADAPTIVE SPIRAL
 ===================================================== */
 
 function activateGroup(project) {
@@ -223,89 +420,94 @@ function activateGroup(project) {
     img._floating = img.dataset.project !== project;
   });
 
-  /* zoom out */
+  /* zoom out slightly like original */
   targetScale = 0.7;
-  targetOriginX = window.innerWidth * 0.15;
-  targetOriginY = window.innerHeight * 0.15;
-
-setTimeout(() => {
-
-  const groupImages =
-    images.filter(i => i.dataset.project === project);
-
-  const IMAGE_SIZE = 320;
-  const MIN_GAP = 40;
-
-  const CENTER_X = window.innerWidth * 0.26;
-  const CENTER_Y = window.innerHeight * 0.5;
-
-  const SAFE_LEFT   = IMAGE_SIZE * 0.6;
-  const SAFE_RIGHT  = window.innerWidth * 0.55 - IMAGE_SIZE * 0.6;
-  const SAFE_TOP    = IMAGE_SIZE * 0.6;
-  const SAFE_BOTTOM = window.innerHeight - IMAGE_SIZE * 0.6;
-
-  const placed = [];
-
-  groupImages.forEach((img, i) => {
-
-    img.style.width = IMAGE_SIZE + "px";
-
-    let radius = Math.sqrt(i) * (IMAGE_SIZE + 90);
-    let angle  = i * 0.9;
-
-    let x, y;
-    let tries = 0;
-
-    do {
-      x = CENTER_X + Math.cos(angle) * radius;
-      y = CENTER_Y + Math.sin(angle) * radius;
-
-      x = Math.max(SAFE_LEFT,  Math.min(SAFE_RIGHT,  x));
-      y = Math.max(SAFE_TOP,   Math.min(SAFE_BOTTOM, y));
-
-      tries++;
-      angle += 0.35;
-      radius += 12;
-
-    } while (
-      placed.some(p =>
-        Math.hypot(p.x - x, p.y - y) <
-        IMAGE_SIZE + MIN_GAP
-      ) &&
-      tries < 60
-    );
-
-    placed.push({ x, y });
-
-    img._x = x;
-    img._y = y;
-    img._tx = x;
-    img._ty = y;
-
-    img.style.zIndex = 1000 + i;
-    img.style.transform =
-      `translate(${x}px, ${y}px) translate(-50%, -50%)`;
-  });
-
-  /* camera return */
-  targetScale = 1;
-  targetOriginX = 0;
-  targetOriginY = 0;
 
   setTimeout(() => {
-    descriptions.classList.add("visible");
 
-    Array.from(descriptions.children).forEach(desc => {
-      desc.style.display =
-        desc.dataset.project === project ? "block" : "none";
+    const groupImages =
+      images.filter(i => i.dataset.project === project);
+
+    const COUNT = groupImages.length;
+
+    const IMAGE_SIZE = 320;
+    const MIN_GAP = 40;
+
+    /* ==========================================
+       LEFT CENTER OF SCREEN — WORLD SPACE
+    ========================================== */
+
+    const CENTER_X = -window.innerWidth * 0.33 / scale;
+    const CENTER_Y = 0;
+
+    /* adaptive radius depending on image count */
+    const MAX_RADIUS =
+      Math.min(
+        window.innerWidth * 0.28,
+        window.innerHeight * 0.45
+      ) / scale;
+
+    /* density control */
+    const density =
+      Math.min(Math.max(COUNT / 14, 0.7), 2.2);
+
+    const SPACING =
+      (IMAGE_SIZE + MIN_GAP) / density;
+
+    /* golden angle spiral */
+    const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
+
+    groupImages.forEach((img, i) => {
+
+      img.style.width = IMAGE_SIZE + "px";
+
+      const angle = i * GOLDEN_ANGLE;
+
+      const radius =
+        Math.min(
+          Math.sqrt(i) * SPACING,
+          MAX_RADIUS
+        );
+
+      const x = CENTER_X + Math.cos(angle) * radius;
+      const y = CENTER_Y + Math.sin(angle) * radius;
+
+      img._x = x;
+      img._y = y;
+      img._tx = x;
+      img._ty = y;
+
+      /* first image always on top */
+      img.style.zIndex = 3000 - i;
+
+      img.style.transform =
+        `translate(${x}px, ${y}px) translate(-50%, -50%)`;
     });
 
-  }, 420);
+    /* ==========================================
+       CAMERA FOCUS — SMOOTH & CORRECT
+    ========================================== */
 
-}, 520);
+    targetScale = 1;
+    targetOriginX = CAMERA_CENTER_X - CENTER_X;
+    targetOriginY = CAMERA_CENTER_Y - CENTER_Y;
 
+    setTimeout(() => {
+      descriptions.classList.add("visible");
 
+      Array.from(descriptions.children).forEach(desc => {
+        desc.style.display =
+          desc.dataset.project === project ? "block" : "none";
+      });
+    }, 420);
+
+  }, 520);
 }
+
+
+
+
+
 
 /* =====================================================
    DRAGGING — GROUP ONLY
@@ -447,3 +649,90 @@ aboutBtn.addEventListener("click", () => {
 });
 
 
+
+/* =====================================================
+   MOBILE ONE-FINGER PAN
+===================================================== */
+
+
+let lastTouchX = null;
+let lastTouchY = null;
+
+viewport.addEventListener("touchstart", e => {
+
+  if (!IS_MOBILE) return;
+  if (pinchLock) return;
+  if (e.touches.length !== 1) return;
+
+  lastTouchX = e.touches[0].clientX;
+  lastTouchY = e.touches[0].clientY;
+});
+
+
+viewport.addEventListener("touchmove", e => {
+
+  if (!IS_MOBILE) return;
+  if (pinchLock) return;
+  if (e.touches.length !== 1) return;
+
+  e.preventDefault();
+
+  const t = e.touches[0];
+
+  const dx = t.clientX - lastTouchX;
+  const dy = t.clientY - lastTouchY;
+
+  targetOriginX += dx;
+  targetOriginY += dy;
+
+  lastTouchX = t.clientX;
+  lastTouchY = t.clientY;
+
+}, { passive: false });
+
+
+viewport.addEventListener("touchend", () => {
+  lastTouchX = null;
+  lastTouchY = null;
+});
+
+
+
+/* =====================================================
+   MOBILE STACKED PROJECT VIEW (ADDED)
+===================================================== */
+
+const mobileProject = document.getElementById("mobile-project");
+const mobileStack = document.getElementById("mobile-stack");
+const mobileExit = document.getElementById("mobile-exit");
+
+function openMobileGroup(project) {
+
+  activeProject = project;
+  mobileStack.innerHTML = "";
+
+  const groupImages =
+    images.filter(i => i.dataset.project === project);
+
+  const description =
+    Array.from(descriptions.children)
+      .find(d => d.dataset.project === project);
+
+  mobileStack.appendChild(groupImages[0].cloneNode());
+
+  if (description) {
+    mobileStack.appendChild(description.cloneNode(true));
+  }
+
+  groupImages.slice(1).forEach(img => {
+    mobileStack.appendChild(img.cloneNode());
+  });
+
+  mobileProject.hidden = false;
+}
+
+mobileExit.addEventListener("click", () => {
+  mobileProject.hidden = true;
+  mobileStack.innerHTML = "";
+  activeProject = null;
+});
